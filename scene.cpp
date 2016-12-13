@@ -199,7 +199,7 @@ void Scene::initScene()
 
 
     cubeCenter = createPointVao(0, 0, 0);
-    fullScreenQuad = createQuadVao();
+    //fullScreenQuad = createQuadVao();
 
     velocity = createSlab(gridWidth, gridHeight, gridDepth, 3);
     density = createSlab(gridWidth, gridHeight, gridDepth, 1);
