@@ -1,6 +1,6 @@
 #version 440
 
-in vec4 Position;
+layout (location = 0) in vec4 Position;
 out vec4 vPosition;
 uniform mat4 ModelViewProjection;
 

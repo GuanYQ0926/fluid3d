@@ -6,7 +6,9 @@
 #include <glm/glm.hpp>
 
 
-const int gridWidth = 96;
+const int viewportWidth = 640;
+const int viewportHeight = viewportWidth;
+const int gridWidth = viewportWidth/2;
 const int gridHeight = gridWidth;
 const int gridDepth = gridWidth;
 const float cellSize = 1.25f;
@@ -16,8 +18,6 @@ const float splatRadius = gridWidth/8.0f;
 const float ambientTemperature = 0.0f;
 const float smokeBuoyancy = 1.0f;
 const float smokeWeight = 0.0125f;
-const int viewportWidth = 320;
-const int viewportHeight = viewportWidth;
 const float velocityDissipation = 0.99f;
 const float temperatureDissipation = 0.99f;
 const float densityDissipation = 0.9995f;
@@ -78,8 +78,8 @@ private:
     Surface createSurface(int width, int height, int numComponent=4);
     Slab createSlab(GLsizei width, GLsizei height, GLsizei depth, int numComponent);
     Surface createVolume(int width, int height, int depth, int numComponent=4);
-    GLuint createPointVbo(float x, float y, float z);
-    GLuint createQuadVbo();
+    GLuint createPointVao(float x, float y, float z);
+    GLuint createQuadVao();
     void createObstacles(Surface dest);
 
     void advect(Surface velocity, Surface source, Surface obstacles, Surface dest, float dissipation);

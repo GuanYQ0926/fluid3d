@@ -198,8 +198,8 @@ void Scene::initScene()
     }
 
 
-    cubeCenter = createPointVbo(0, 0, 0);
-    fullScreenQuad = createQuadVbo();
+    cubeCenter = createPointVao(0, 0, 0);
+    fullScreenQuad = createQuadVao();
 
     velocity = createSlab(gridWidth, gridHeight, gridDepth, 3);
     density = createSlab(gridWidth, gridHeight, gridDepth, 1);
@@ -219,33 +219,9 @@ void Scene::initScene()
 
 void Scene::renderScene(glm::vec3 cameraPosition, glm::mat4 cameraView, glm::mat4 cameraProjection)
 {
-    //Render
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glViewport(0, 0, viewportWidth, viewportHeight);
-    glClearColor(0, 0.125f, 0.25f, 0);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glEnable(GL_BLEND);
-    glBindBuffer(GL_ARRAY_BUFFER, cubeCenter);
-    glVertexAttribPointer(slotPosition, 3, GL_FLOAT, GL_FALSE, 3*sizeof(float), 0);
-    glBindTexture(GL_TEXTURE_3D, density.ping.colorTexture);
-    raycastProgram.use();
-    raycastProgram.setUniform("ModelViewProjection", glm::vec4(cameraPosition, 1.0f)*cameraView*glm::mat4(1.0f));
-    raycastProgram.setUniform("ModelView", cameraView*glm::mat4(1.0f));
-    raycastProgram.setUniform("ViewMatrix", cameraView);
-    raycastProgram.setUniform("ProjectionMatrix", cameraProjection);
-    raycastProgram.setUniform("RayStartPoints", 1);
-    raycastProgram.setUniform("RayStopPoints", 2);
-    raycastProgram.setUniform("EyePosition", cameraPosition);
-    raycastProgram.setUniform("RayOrigin", glm::vec3(glm::transpose(cameraView*glm::mat4(1.0f))*glm::vec4(cameraPosition,1.0f)));
-    raycastProgram.setUniform("FocalLength", 2.74f);
-    raycastProgram.setUniform("WindowSize", glm::vec2((float)viewportWidth, (float)viewportHeight));
-    glDrawArrays(GL_POINTS, 0, 1);
-
     //update
-    glBindBuffer(GL_ARRAY_BUFFER, fullScreenQuad);
-    glVertexAttribPointer(slotPosition, 2, GL_SHORT, GL_FALSE, 2*sizeof(short), 0);
     glViewport(0, 0, gridWidth, gridHeight);
-    advect(velocity.ping, velocity.pong, obstacles, velocity.pong, velocityDissipation);
+    advect(velocity.ping, velocity.ping, obstacles, velocity.pong, velocityDissipation);
     swapSurfaces(&velocity);
     advect(velocity.ping, temperature.ping, obstacles, temperature.pong, temperatureDissipation);
     swapSurfaces(&temperature);
@@ -264,6 +240,30 @@ void Scene::renderScene(glm::vec3 cameraPosition, glm::mat4 cameraView, glm::mat
     }
     subtractGradient(velocity.ping, pressure.ping, obstacles, velocity.pong);
     swapSurfaces(&velocity);
+
+    //Render
+    raycastProgram.use();
+    glEnable(GL_BLEND);
+
+    glViewport(0, 0, viewportWidth, viewportHeight);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glClearColor(0.1, 0.1f, 0.1f, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    //draw ink
+    glBindBuffer(GL_ARRAY_BUFFER, cubeCenter);
+    glVertexAttribPointer(slotPosition, 3, GL_FLOAT, GL_FALSE, 3*sizeof(float), 0);
+    glBindTexture(GL_TEXTURE_3D, density.ping.colorTexture);
+    raycastProgram.setUniform("FillColor", glm::vec3(1));
+    raycastProgram.setUniform("Scale", glm::vec3(1.0f/viewportWidth, 1.0f/viewportHeight, 1.0f/viewportWidth));
+    glDrawArrays(GL_POINTS, 0, 1);
+
+    //draw obstacles
+    glBindTexture(GL_TEXTURE_3D, obstacles.colorTexture);
+    raycastProgram.setUniform("FillColor", glm::vec3(0.125f, 0.4f, 0.75f));
+    glDrawArrays(GL_POINTS, 0, 1);
+
+    glDisable(GL_BLEND);
 }
 
 
@@ -334,14 +334,11 @@ Surface Scene::createSurface(int width, int height, int numComponent)
         printf("CreateSurface::Framebuffer is not complete!\n");
     }
 
-    Surface surface = {fboHandle, textureHandle};
+    Surface surface = {fboHandle, textureHandle, width, height, 1};
 
     glClearColor(0, 0, 0, 0);
     glClear(GL_COLOR_BUFFER_BIT);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    surface.width = width;
-    surface.height = height;
-    surface.depth = 1;
     return surface;
 }
 
@@ -395,28 +392,33 @@ Surface Scene::createVolume(int width, int height, int depth, int numComponent)
         printf("CreateVolume::Framebuffer is not complete!\n");
     }
 
-    Surface surface = {fboHandle, textureHandle};
+    Surface surface = {fboHandle, textureHandle, width, height, depth};
 
     glClearColor(0, 0, 0, 0);
     glClear(GL_COLOR_BUFFER_BIT);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    surface.width = width;
-    surface.height = height;
-    surface.depth = depth;
     return surface;
 }
 
-GLuint Scene::createPointVbo(float x, float y, float z)
+GLuint Scene::createPointVao(float x, float y, float z)
 {
     float p[] = {x, y, z};
+
+    GLuint vao;
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+
     GLuint vbo;
     glGenBuffers(1, &vbo);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(p), &p[0], GL_STATIC_DRAW);
-    return vbo;
+
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, ((GLubyte*)NULL+(0)));
+    return vao;
 }
 
-GLuint Scene::createQuadVbo()
+GLuint Scene::createQuadVao()
 {
     short positions[] = {
         -1, -1,
@@ -424,12 +426,20 @@ GLuint Scene::createQuadVbo()
         -1,  1,
          1,  1
     };
+
+    GLuint vao;
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+
     GLuint vbo;
     GLsizeiptr size = sizeof(positions);
     glGenBuffers(1, &vbo);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, size, positions, GL_STATIC_DRAW);
-    return vbo;
+
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(slotPosition, 2, GL_SHORT, GL_FALSE, 2*sizeof(short), 0);
+    return vao;
 }
 
 void Scene::createObstacles(Surface dest)
@@ -543,8 +553,8 @@ void Scene::advect(Surface velocity, Surface source, Surface obstacles,
 {
     programs.Advect.use();
 
-    programs.Advect.setUniform("InverseSize", glm::vec3(float(gridWidth),
-                                                        float(gridHeight), float(gridDepth)));
+    programs.Advect.setUniform("InverseSize", glm::vec3(float(1.0f/gridWidth),
+                                                        float(1.0f/gridHeight), float(1.0f/gridDepth)));
     programs.Advect.setUniform("TimeStep", timeStep);
     programs.Advect.setUniform("Dissipation", dissipation);
     programs.Advect.setUniform("SourceTexture", 1);
@@ -589,7 +599,6 @@ void Scene::subtractGradient(Surface velocity, Surface pressure, Surface obstacl
     programs.SubtractGradient.use();
 
     programs.SubtractGradient.setUniform("GradientScale", gradientScale);
-    programs.SubtractGradient.setUniform("HalfInverseCellSize", 0.5f/cellSize);
     programs.SubtractGradient.setUniform("Pressure", 1);
     programs.SubtractGradient.setUniform("Obstacles", 2);
 

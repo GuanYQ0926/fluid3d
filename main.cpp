@@ -36,7 +36,7 @@ int main()
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
-    GLFWwindow* window = glfwCreateWindow(800, 600, /*viewportWidth, viewportHeight,*/
+    GLFWwindow* window = glfwCreateWindow(viewportWidth, viewportHeight,
                                           "fluid3d", NULL, NULL);
     glfwMakeContextCurrent(window);
 
@@ -84,6 +84,7 @@ int main()
         glfwSwapBuffers(window);
         frames++;
         glfwPollEvents();
+        //break;
     }
     glfwTerminate();
     return 0;

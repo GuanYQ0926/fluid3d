@@ -1,6 +1,6 @@
 #version 440
 
-in vec4 Position;
+layout (location = 0) in vec4 Position;
 out int vInstance;
 
 void main()
