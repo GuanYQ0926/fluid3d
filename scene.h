@@ -75,7 +75,6 @@ private:
     void swapSurfaces(Slab* slab);
     void clearSurface(Surface s, float v);
 
-    Surface createSurface(int width, int height, int numComponent=4);
     Slab createSlab(GLsizei width, GLsizei height, GLsizei depth, int numComponent);
     Surface createVolume(int width, int height, int depth, int numComponent=4);
     GLuint createPointVao(float x, float y, float z);

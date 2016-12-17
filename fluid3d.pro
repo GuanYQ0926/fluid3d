@@ -5,13 +5,15 @@ CONFIG -= qt
 
 SOURCES += main.cpp \
     glslprogram.cpp \
-    scene.cpp
+    scene.cpp \
+    fluid.cpp
 
 HEADERS += \
     glslprogram.h \
     glinclude.h \
     scene.h \
-    camera.h
+    camera.h \
+    fluid.h
 
 LIBS += /usr/lib/x86_64-linux-gnu/libGLEW.so \
 /usr/lib/libglfw.so.3 \
