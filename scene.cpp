@@ -292,56 +292,6 @@ void Scene::clearSurface(Surface s, float v)
 }
 
 
-
-Surface Scene::createSurface(int width, int height, int numComponent)
-{
-    GLuint fboHandle;
-    glGenFramebuffers(1, &fboHandle);
-    glBindFramebuffer(GL_FRAMEBUFFER, fboHandle);
-
-    GLuint textureHandle;
-    glGenTextures(1, &textureHandle);
-    glBindTexture(GL_TEXTURE_2D, textureHandle);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    switch(numComponent)
-    {
-    case 1:
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_R16F, width, height, 0, GL_RED, GL_HALF_FLOAT, 0);
-        break;
-    case 2:
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RG16F, width, height, 0, GL_RG, GL_HALF_FLOAT, 0);
-        break;
-    case 3:
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, width, height, 0, GL_RGB, GL_HALF_FLOAT, 0);
-        break;
-    case 4:
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_HALF_FLOAT, 0);
-        break;
-    default:
-        printf("CreateSurface::Switch Error!\n");
-        exit(1);
-    }
-
-    GLuint colorbuffer;
-    glGenRenderbuffers(1, &colorbuffer);
-    glBindRenderbuffer(GL_RENDERBUFFER, colorbuffer);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureHandle, 0);
-    if(glCheckFramebufferStatus(GL_FRAMEBUFFER)!=GL_FRAMEBUFFER_COMPLETE){
-        printf("CreateSurface::Framebuffer is not complete!\n");
-    }
-
-    Surface surface = {fboHandle, textureHandle, width, height, 1};
-
-    glClearColor(0, 0, 0, 0);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    return surface;
-}
-
 Slab Scene::createSlab(GLsizei width, GLsizei height, GLsizei depth, int numComponent)
 {
     Slab slab;

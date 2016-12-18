@@ -165,21 +165,21 @@ Fluid::Fluid()
         exit(1);
     }
     //Visualize
-    if(!programs.Visualize.compileShaderFromFile("",
+    if(!programs.Visualize.compileShaderFromFile("/home/guanyuqing/Documents/cppcode/fluid3d/fluid3d/shaders/raycast.vs",
                                                  GLSLShader::VERTEX))
     {
         printf("Visualize::Vertex shader failed to compile!\n%s",
                programs.Visualize.log().c_str());
         exit(1);
     }
-    if(!programs.Visualize.compileShaderFromFile("",
+    if(!programs.Visualize.compileShaderFromFile("/home/guanyuqing/Documents/cppcode/fluid3d/fluid3d/shaders/raycast.gs",
                                                  GLSLShader::GEOMETRY))
     {
         printf("Visualize::Geometry shader failed to compile!\n%s",
                programs.Visualize.log().c_str());
         exit(1);
     }
-    if(!programs.Visualize.compileShaderFromFile("",
+    if(!programs.Visualize.compileShaderFromFile("/home/guanyuqing/Documents/cppcode/fluid3d/fluid3d/shaders/raycast.fs",
                                                  GLSLShader::FRAGMENT))
     {
         printf("Visualize::Fragment shader failed to compile!\n%s",
@@ -194,8 +194,87 @@ Fluid::Fluid()
     }
 }
 
+void Fluid::initFluid()
+{
+    cubeCenter = createPointVbo(0, 0, 0);//createPointVao(0, 0, 0);
+    fullScreenQuad = createQuadVbo();//createQuadVao();
 
-Slab Fluid::createSlab(GLsizei width, GLsizei height, GLsize depth, int numComponent)
+    velocity = createSlab(gridWidth, gridHeight, gridDepth, 3);
+    density = createSlab(gridWidth, gridHeight, gridDepth, 1);
+    pressure = createSlab(gridWidth, gridHeight, gridDepth, 1);
+    temperature = createSlab(gridWidth, gridHeight, gridDepth, 1);
+
+    divergence = createVolume(gridWidth, gridHeight, gridDepth, 3);
+    obstacles = createVolume(gridWidth, gridHeight, gridDepth, 3);
+    createObstacles(obstacles);
+    clearVolume(temperature.ping, ambientTemperature);
+
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnableVertexAttribArray(0);
+}
+
+void Fluid::renderFluid(glm::vec3 cameraPos, glm::mat4 cameraView, glm::mat4 cameraProjection)
+{
+    //update
+    glBindBuffer(GL_ARRAY_BUFFER, fullScreenQuad);
+    glVertexAttribPointer(0, 2, GL_SHORT, GL_FALSE, 2*sizeof(short), 0);
+    mat4 model = mat4(1.0f);
+    programs.Visualize.setUniform("ModelViewProjection", cameraProjection*cameraView*model);
+
+    glViewport(0, 0, gridWidth, gridHeight);
+    advect(velocity.ping, velocity.ping, obstacles, velocity.pong, velocityDissipation);
+    swapVolumes(&velocity);
+    advect(velocity.ping, temperature.ping, obstacles, temperature.pong, temperatureDissipation);
+    swapVolumes(&temperature);
+    advect(velocity.ping, density.ping, obstacles, density.pong, densityDissipation);
+    swapVolumes(&density);
+
+    applyBuoyancy(velocity.ping, temperature.ping, density.ping, velocity.pong);
+    swapVolumes(&velocity);
+    applyImpulse(temperature.ping, impulsePosition, impulseTemperature);
+    applyImpulse(density.ping, impulsePosition, impulseDensity);
+
+    computeDivergence(velocity.ping, obstacles, divergence);
+    clearVolume(pressure.ping, 0);
+    for(int i=0;i<numJacobiIterations;i++)
+    {
+        jacobi(pressure.ping, divergence, obstacles, pressure.pong);
+        swapVolumes(&pressure);
+    }
+    subtractGradient(velocity.ping, pressure.ping, obstacles, velocity.pong);
+    swapVolumes(&velocity);
+
+    //render
+    programs.Visualize.use();
+    glEnable(GL_BLEND);
+
+    glViewport(0, 0, viewportWidth, viewportHeight);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    //draw ink
+    glBindBuffer(GL_ARRAY_BUFFER, cubeCenter);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3*sizeof(float), 0);
+    glBindTexture(GL_TEXTURE_3D, density.ping.textureHandle);
+    programs.Visualize.setUniform("FillColor", vec3(1));
+    programs.Visualize.setUniform("Scale", vec3(1.0f/viewportWidth, 1.0f/viewportHeight,
+                                                1.0f/viewportWidth));
+    glDrawArrays(GL_POINTS, 0, 1);
+
+    //draw obstacles
+    glBindTexture(GL_TEXTURE_3D, obstacles.textureHandle);
+    programs.Visualize.setUniform("FillColor", vec3(0.125f, 0.4f, 0.75f));
+    glDrawArrays(GL_POINTS, 0, 1);
+
+    glDisable(GL_BLEND);
+}
+
+
+
+Slab Fluid::createSlab(GLsizei width, GLsizei height, GLsizei depth, int numComponent)
 {
     Slab temp;
     temp.ping = createVolume(width, height, depth, numComponent);
@@ -291,6 +370,31 @@ GLuint Fluid::createQuadVao()
     return vao;
 }
 
+GLuint Fluid::createPointVbo(float x, float y, float z)
+{
+    float p[] = {x, y, z};
+    GLuint vbo;
+    glGenBuffers(1, &vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(p), p, GL_STATIC_DRAW);
+    return vbo;
+}
+
+GLuint Fluid::createQuadVbo()
+{
+    short positions[] = {
+        -1, -1,
+         1, -1,
+        -1,  1,
+         1,  1
+    };
+    GLuint vbo;
+    glGenBuffers(1, &vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(positions), positions, GL_STATIC_DRAW);
+    return vbo;
+}
+
 void Fluid::createObstacles(Volume dest)
 {
     glBindFramebuffer(GL_FRAMEBUFFER, dest.fboHandle);
@@ -302,14 +406,14 @@ void Fluid::createObstacles(Volume dest)
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
     GLSLProgram tempObstacle;
-    if(!tempObstacle.compileShaderFromFile("",
+    if(!tempObstacle.compileShaderFromFile("/home/guanyuqing/Documents/cppcode/fluid3d/fluid3d/shaders/vertex.vs",
                                            GLSLShader::VERTEX))
     {
         printf("CreateObstacles::Vertex shader failed to compile!\n%s",
                tempObstacle.log().c_str());
         exit(1);
     }
-    if(!tempObstacle.compileShaderFromFile("",
+    if(!tempObstacle.compileShaderFromFile("/home/guanyuqing/Documents/cppcode/fluid3d/fluid3d/shaders/fill.fs",
                                            GLSLShader::FRAGMENT))
     {
         printf("CreateObstacles::Fragment shader failed to compile!\n%s",
@@ -365,9 +469,9 @@ void Fluid::resetState()
     glDisable(GL_BLEND);
 }
 
-void Fluid::swapVolums(Slab* slab)
+void Fluid::swapVolumes(Slab* slab)
 {
-    Volume* temp = slab->ping;
+    Volume temp = slab->ping;
     slab->ping = slab->pong;
     slab->pong = temp;
 }
@@ -381,12 +485,12 @@ void Fluid::clearVolume(Volume volume, float value)
 
 
 
-void Fluid::advect(Volume velocity, Volume source, Volume obstalces,
+void Fluid::advect(Volume velocity, Volume source, Volume obstacles,
                    Volume dest, float dissipation)
 {
     programs.Advect.use();
     programs.Advect.setUniform("InverseSize", vec3(float(1.0/gridWidth),
-                                                   float(1.0/gridHeihgt),
+                                                   float(1.0/gridHeight),
                                                    float(1.0/gridDepth)));
     programs.Advect.setUniform("TimeStep", timeStep);
     programs.Advect.setUniform("Dissipation", dissipation);
@@ -405,13 +509,13 @@ void Fluid::advect(Volume velocity, Volume source, Volume obstalces,
     resetState();
 }
 
-void Fluid::jacobi(Volume pressure, Volume divergence, Volume obstalces, Volume dest)
+void Fluid::jacobi(Volume pressure, Volume divergence, Volume obstacles, Volume dest)
 {
     programs.Jacobi.use();
     programs.Jacobi.setUniform("Alpha", -cellSize*cellSize);
     programs.Jacobi.setUniform("InverseBeta", 0.1666f);
     programs.Jacobi.setUniform("Divergence", 1);
-    programs.Jacobi.setUniform("Obstalces", 2);
+    programs.Jacobi.setUniform("Obstacles", 2);
 
     glBindFramebuffer(GL_FRAMEBUFFER, dest.fboHandle);
     glActiveTexture(GL_TEXTURE0);

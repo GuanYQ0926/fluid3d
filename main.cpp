@@ -3,7 +3,8 @@
 #include <string>
 
 #include "glinclude.h"
-#include "scene.h"
+//#include "scene.h"
+#include "fluid.h"
 #include "camera.h"
 
 #include <glm/glm.hpp>
@@ -48,8 +49,11 @@ int main()
     glewExperimental = GL_TRUE;
     glewInit();
 
-    Scene* scene = new Scene();
-    scene->initScene();
+    //Scene* scene = new Scene();
+    //scene->initScene();
+
+    Fluid* fluid = new Fluid();
+    fluid->initFluid();
 
     GLfloat lastFrame = glfwGetTime();
 
@@ -79,7 +83,8 @@ int main()
         cameraProjection = glm::perspective(camera.Zoom,
                                                       (float)800/(float)600, 0.1f, 100.0f);
         cameraPosition = camera.Position;
-        scene->renderScene(cameraPosition, cameraView, cameraProjection);
+        //scene->renderScene(cameraPosition, cameraView, cameraProjection);
+        fluid->renderFluid(cameraPosition, cameraView, cameraProjection);
 
         glfwSwapBuffers(window);
         frames++;
