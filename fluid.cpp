@@ -196,9 +196,6 @@ Fluid::Fluid()
 
 void Fluid::initFluid()
 {
-    cubeCenter = createPointVbo(0, 0, 0);//createPointVao(0, 0, 0);
-    fullScreenQuad = createQuadVbo();//createQuadVao();
-
     velocity = createSlab(gridWidth, gridHeight, gridDepth, 3);
     density = createSlab(gridWidth, gridHeight, gridDepth, 1);
     pressure = createSlab(gridWidth, gridHeight, gridDepth, 1);
@@ -206,21 +203,21 @@ void Fluid::initFluid()
 
     divergence = createVolume(gridWidth, gridHeight, gridDepth, 3);
     obstacles = createVolume(gridWidth, gridHeight, gridDepth, 3);
-    createObstacles(obstacles);
+    createObstacles(obstacles);// In this func program has been used and then glDrawArrays is called, vao should be defined after it
     clearVolume(temperature.ping, ambientTemperature);
-
+    cubeCenter = createPointVao(0, 0, 0);
+    fullScreenQuad = createQuadVao();
     glDisable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glEnableVertexAttribArray(0);
+    model = mat4(1.0f);
+    projection = mat4(1.0f);
 }
+
 
 void Fluid::renderFluid(glm::vec3 cameraPos, glm::mat4 cameraView, glm::mat4 cameraProjection)
 {
     //update
-    glBindBuffer(GL_ARRAY_BUFFER, fullScreenQuad);
-    glVertexAttribPointer(0, 2, GL_SHORT, GL_FALSE, 2*sizeof(short), 0);
-    mat4 model = mat4(1.0f);
     programs.Visualize.setUniform("ModelViewProjection", cameraProjection*cameraView*model);
 
     glViewport(0, 0, gridWidth, gridHeight);
@@ -252,12 +249,14 @@ void Fluid::renderFluid(glm::vec3 cameraPos, glm::mat4 cameraView, glm::mat4 cam
 
     glViewport(0, 0, viewportWidth, viewportHeight);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+    glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
+    //set the view
+    projection = cameraProjection;
+    view = cameraView;
+    programs.Visualize.setUniform("ModelViewProjection", projection*view*model);
     //draw ink
-    glBindBuffer(GL_ARRAY_BUFFER, cubeCenter);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3*sizeof(float), 0);
     glBindTexture(GL_TEXTURE_3D, density.ping.textureHandle);
     programs.Visualize.setUniform("FillColor", vec3(1));
     programs.Visualize.setUniform("Scale", vec3(1.0f/viewportWidth, 1.0f/viewportHeight,
@@ -265,11 +264,10 @@ void Fluid::renderFluid(glm::vec3 cameraPos, glm::mat4 cameraView, glm::mat4 cam
     glDrawArrays(GL_POINTS, 0, 1);
 
     //draw obstacles
-    glBindTexture(GL_TEXTURE_3D, obstacles.textureHandle);
-    programs.Visualize.setUniform("FillColor", vec3(0.125f, 0.4f, 0.75f));
-    glDrawArrays(GL_POINTS, 0, 1);
+    //glBindTexture(GL_TEXTURE_3D, obstacles.textureHandle);
+    //programs.Visualize.setUniform("FillColor", vec3(0.125f, 0.4f, 0.75f));
+    //glDrawArrays(GL_POINTS, 0, 1);
 
-    glDisable(GL_BLEND);
 }
 
 
@@ -316,9 +314,9 @@ Volume Fluid::createVolume(GLsizei width, GLsizei height, GLsizei depth, int num
         exit(1);
     }
 
-    GLuint colorbuffer;
-    glGenRenderbuffers(1, &colorbuffer);
-    glBindRenderbuffer(GL_RENDERBUFFER, colorbuffer);
+    //GLuint colorbuffer;
+    //glGenRenderbuffers(1, &colorbuffer);
+    //glBindRenderbuffer(GL_RENDERBUFFER, colorbuffer);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, textureHandle, 0);
     if(glCheckFramebufferStatus(GL_FRAMEBUFFER)!=GL_FRAMEBUFFER_COMPLETE)
     {
@@ -342,10 +340,10 @@ GLuint Fluid::createPointVao(float x, float y, float z)
     GLuint vbo;
     glGenBuffers(1, &vbo);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(p), p, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(p), &p[0], GL_STATIC_DRAW);
 
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, ((GLubyte*)NULL+(0)));
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, ((GLubyte*)NULL+(0)));
     return vao;
 }
 
@@ -368,31 +366,6 @@ GLuint Fluid::createQuadVao()
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 2, GL_SHORT, GL_FALSE, 0, ((GLubyte*)NULL+(0)));
     return vao;
-}
-
-GLuint Fluid::createPointVbo(float x, float y, float z)
-{
-    float p[] = {x, y, z};
-    GLuint vbo;
-    glGenBuffers(1, &vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(p), p, GL_STATIC_DRAW);
-    return vbo;
-}
-
-GLuint Fluid::createQuadVbo()
-{
-    short positions[] = {
-        -1, -1,
-         1, -1,
-        -1,  1,
-         1,  1
-    };
-    GLuint vbo;
-    glGenBuffers(1, &vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(positions), positions, GL_STATIC_DRAW);
-    return vbo;
 }
 
 void Fluid::createObstacles(Volume dest)

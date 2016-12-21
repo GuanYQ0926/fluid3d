@@ -9,7 +9,7 @@
 
 
 
-const int viewportWidth = 640;
+const int viewportWidth = 256;
 const int viewportHeight = viewportWidth;
 const int gridWidth = viewportWidth/2;
 const int gridHeight = gridWidth;
@@ -68,13 +68,12 @@ private:
     Slab velocity, density, pressure, temperature;
     Volume divergence, obstacles;
     GLuint cubeCenter, fullScreenQuad;
+    mat4 model, projection, view;
 
     Slab createSlab(GLsizei width, GLsizei height, GLsizei depth, int numComponent);
     Volume createVolume(GLsizei width, GLsizei height, GLsizei depth, int numComponent);
     GLuint createPointVao(float x, float y, float z);
     GLuint createQuadVao();
-    GLuint createPointVbo(float x, float y, float z);
-    GLuint createQuadVbo();
     void createObstacles(Volume dest);
 
     void resetState();

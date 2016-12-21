@@ -5,13 +5,11 @@ CONFIG -= qt
 
 SOURCES += main.cpp \
     glslprogram.cpp \
-    scene.cpp \
     fluid.cpp
 
 HEADERS += \
     glslprogram.h \
     glinclude.h \
-    scene.h \
     camera.h \
     fluid.h
 

@@ -9,5 +9,5 @@ uniform vec3 FillColor;
 void main()
 {
     float L = texture(Sampler, gl_FragCoord.xyz*Scale).r;
-    FragColor = vec4(FillColor, L);
+    FragColor = vec4(1, 0, 0, 1);
 }

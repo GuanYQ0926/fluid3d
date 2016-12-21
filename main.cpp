@@ -3,7 +3,6 @@
 #include <string>
 
 #include "glinclude.h"
-//#include "scene.h"
 #include "fluid.h"
 #include "camera.h"
 
@@ -49,9 +48,6 @@ int main()
     glewExperimental = GL_TRUE;
     glewInit();
 
-    //Scene* scene = new Scene();
-    //scene->initScene();
-
     Fluid* fluid = new Fluid();
     fluid->initFluid();
 
@@ -59,9 +55,6 @@ int main()
 
     while(!glfwWindowShouldClose(window))
     {
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-
         GLfloat currentFrame = glfwGetTime();
         currentTime = currentFrame;
         deltaTime = currentTime - lastTime;
@@ -81,15 +74,15 @@ int main()
         Do_Movement();
         cameraView = camera.GetViewMatrix();
         cameraProjection = glm::perspective(camera.Zoom,
-                                                      (float)800/(float)600, 0.1f, 100.0f);
+                                            (float)viewportWidth/(float)viewportHeight,
+                                            0.1f, 100.0f);
         cameraPosition = camera.Position;
-        //scene->renderScene(cameraPosition, cameraView, cameraProjection);
         fluid->renderFluid(cameraPosition, cameraView, cameraProjection);
 
         glfwSwapBuffers(window);
         frames++;
         glfwPollEvents();
-        //break;
+        break;
     }
     glfwTerminate();
     return 0;
